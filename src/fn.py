@@ -2,6 +2,7 @@ import numpy as np
 from skimage import io, transform
 from PIL import Image
 import matplotlib.pyplot as plt
+import os
 
 def load_and_downsample_normal2_image(
     path,
@@ -65,11 +66,6 @@ def load_and_downsample_normal2_image(
         plt.show()
     
     return img_down
-
-
-import os
-import matplotlib.pyplot as plt
-import numpy as np
 
 def visualize_reconstruction(
     psf_resized,

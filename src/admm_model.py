@@ -109,20 +109,18 @@ def pad_zeros_torch(model, x):
 def Hfor(model, x):
     """前向算子 H (卷积/成像)，计算 Hx。"""
     xc = torch.stack((x, torch.zeros_like(x, dtype=torch.float32)), -1)
-    X = torch.fft(xc,2)
-    # X = torch.fft.fftn(xc, dim=(2, 3))
-    HX = complex_multiplication(model.H,X)
-    out = torch.ifft(HX,2)
-    out_r, _ = torch.unbind(out,-1)
+    X = torch.view_as_real(torch.fft.fft2(torch.view_as_complex(xc)))
+    HX = complex_multiplication(model.H, X)
+    out = torch.view_as_real(torch.fft.ifft2(torch.view_as_complex(HX)))
+    out_r, _ = torch.unbind(out, -1)
     return out_r
 def Hadj(model, x):
     """伴随算子 H* (转置卷积)，计算 H^T x。"""
     xc = torch.stack((x, torch.zeros_like(x, dtype=torch.float32)), -1)
-    X = torch.fft(xc,2)
-    # X = torch.fft.fftn(xc, dim=(2, 3))
-    HX = complex_multiplication(model.Hconj,X)
-    out = torch.ifft(HX,2)
-    out_r, _ = torch.unbind(out,-1)
+    X = torch.view_as_real(torch.fft.fft2(torch.view_as_complex(xc)))
+    HX = complex_multiplication(model.Hconj, X)
+    out = torch.view_as_real(torch.fft.ifft2(torch.view_as_complex(HX)))
+    out_r, _ = torch.unbind(out, -1)
     return out_r
 
 def admm(model, in_vars, alpha2k_1, alpha2k_2, CtC, Cty, n):  
@@ -184,9 +182,14 @@ def admm(model, in_vars, alpha2k_1, alpha2k_2, CtC, Cty, n):
         + mu1 * Hadj(model, vkp - alpha1k / mu1)
         + mu2 * Ltv_tf(ukp_1 - alpha2k_1 / mu2, ukp_2 - alpha2k_2 / mu2)
     )
-    SKP_numer = torch.fft(make_complex(skp_numer), 2)
-    skp = make_real(torch.ifft(complex_multiplication(make_complex(Smult), SKP_numer), 2))
-
+    SKP_numer = torch.view_as_real(
+    torch.fft.fft2(torch.view_as_complex(make_complex(skp_numer)))
+    )
+    skp = make_real(
+        torch.view_as_real(
+            torch.fft.ifft2(torch.view_as_complex(complex_multiplication(make_complex(Smult), SKP_numer)))
+        )
+    )
     # ------------------------------------------------------------------
     # Step 5: 更新拉格朗日乘子
     # ------------------------------------------------------------------
@@ -263,11 +266,9 @@ class ADMM_Net(torch.nn.Module):
         # ======================
         # 频域算子
         # ======================
-        self.H = torch.fft(batch_ifftshift2d(self.h_complex).squeeze(), 2)   
-        # self.H = torch.fft.fftn(
-        #     torch.view_as_complex(batch_ifftshift2d(self.h_complex).squeeze()), 
-        #     dim=(0, 1)   # 或者 dim=(2, 3)，取决于你的张量维度
-        # )
+        self.H = torch.view_as_real(
+            torch.fft.fft2(torch.view_as_complex(batch_ifftshift2d(self.h_complex).squeeze()))
+        )
         self.Hconj =  self.H* torch.tensor([1,-1], dtype = torch.float32, device=self.cuda_device) 
         self.HtH = complex_abs(complex_multiplication(self.H, self.Hconj))
 
@@ -293,13 +294,10 @@ class ADMM_Net(torch.nn.Module):
         Returns:
             x_outn: 归一化后的最终重建结果
         """
-        # print("\n=== Forward 开始 ===")
-
         # ------------------------------------------------------------------
         # Step 1: 输入准备
         # ------------------------------------------------------------------
         y = inputs
-        # print(f"[Input] 接收输入 y.shape = {y.shape}")
 
         # 构造零填充
         Cty = pad_zeros_torch(self, y)                      
@@ -354,7 +352,6 @@ class ADMM_Net(torch.nn.Module):
             # 保存中间结果 (可视化/调试用)
             self.in_list = in_vars
 
-        # print("\n=== Forward 结束 ===")
         return x_outn
 
 

@@ -12,27 +12,27 @@
 
 ### 环境配置：
 
-项目配置的核心点在于要使用 PyTorch 的 1.7 版本，因为要使用老版本的 fft 和 ifft 函数。
+```shell
+# 创建一个名为 lensless_env 的新 Conda 环境（此时还没有安装任何包）
+conda create -n lensless_env -y
 
-```
-# 1️⃣ 创建名为 lensless_env 的 Conda 虚拟环境，Python 版本为 3.7
-conda create -n lensless_env python=3.7 -y
-
-# 2️⃣ 激活该环境
+# 激活刚刚创建的环境，使后续安装和运行都在这个环境中进行
 conda activate lensless_env
 
-# 3️⃣ 安装指定版本的 NumPy（PyTorch 1.7.1 兼容的版本）
-conda install numpy=1.21.5 -y
+# 安装 Python、NumPy、Matplotlib、scikit-image 和 Pillow（图像处理库）到当前环境
+conda install python numpy matplotlib scikit-image pillow -y
 
-# 4️⃣ 安装 PyTorch 依赖 typing-extensions（部分旧版 PyTorch 需要）
-conda install typing-extensions -y
+# 从 PyTorch 官方通道安装最新稳定版的 PyTorch、TorchVision 和 TorchAudio
+# （-c pytorch 指定从 pytorch 官方频道获取软件包）
+conda install pytorch torchvision torchaudio -c pytorch -y
 
-# 5️⃣ 从本地文件安装 PyTorch CPU 版本（无需联网）
-# 下载地址为：https://download.pytorch.org/whl/torch_stable.html
-pip install ./torch-1.7.1+cpu-cp37-cp37m-win_amd64.whl
+# 查看当前环境中 Python 的版本，确认 Python 已安装成功
+python -V
 
-# 6️⃣ 安装常用的图像处理和可视化库（从 conda-forge 获取最新兼容版本）
-conda install matplotlib scikit-image pillow -c conda-forge -y
+# 测试核心科学计算与图像处理库是否安装成功
+# 如果没有错误并打印出 "All packages imported successfully!"，说明一切正常
+python -c "import numpy, matplotlib, skimage, PIL; print('All packages imported successfully!')"
 ```
 
 **注意事项：**Jupyter 组件未在环境中安装，运行时由 VSCode 自动管理。
+
