@@ -34,5 +34,5 @@ python -V
 python -c "import numpy, matplotlib, skimage, PIL; print('All packages imported successfully!')"
 ```
 
-**注意事项：**Jupyter 组件未在环境中安装，运行时由 VSCode 自动管理。
+**注意事项：** Jupyter 组件未在环境中安装，运行时由 VSCode 自动管理。
 
