@@ -223,8 +223,17 @@ def admm(model, in_vars, alpha2k_1, alpha2k_2, CtC, Cty, n):
     return out_vars, alpha2k_1up, alpha2k_2up
 
 class ADMM_Net(torch.nn.Module):
+    def __init__(self, h, iterations, cuda_device,
+                 mu1_init=1e-4, mu2_init=1e-4, mu3_init=1e-4, tau_init=2e-3):
+        """
+        初始化 ADMM 网络结构，可自定义 mu1, mu2, mu3, tau 初始值。
 
-    def __init__(self, h, iterations, cuda_device):
+        Args:
+            h (np.ndarray): PSF
+            iterations (int): ADMM 迭代次数
+            cuda_device: 运行设备
+            mu1_init, mu2_init, mu3_init, tau_init (float): 可调超参数
+        """
         super(ADMM_Net, self).__init__()
         
         # ======================
@@ -235,7 +244,8 @@ class ADMM_Net(torch.nn.Module):
         self.cuda_device = cuda_device
 
         # 初始化 ADMM 学习参数 (mu1, mu2, mu3, tau)
-        self.initialize_learned_variables()
+        # self.initialize_learned_variables()
+        self.initialize_learned_variables(mu1_init, mu2_init, mu3_init, tau_init)
 
         # ======================
         # 图像维度与填充
@@ -278,11 +288,12 @@ class ADMM_Net(torch.nn.Module):
             requires_grad=False
         )
 
-    def initialize_learned_variables(self):
-        self.mu1=  torch.ones(self.iterations, dtype = torch.float32, device=self.cuda_device)*1e-4
-        self.mu2=  torch.ones(self.iterations, dtype = torch.float32, device=self.cuda_device)*1e-4
-        self.mu3 = torch.ones(self.iterations, dtype = torch.float32, device=self.cuda_device)*1e-4
-        self.tau= torch.ones(self.iterations, dtype = torch.float32, device=self.cuda_device)*2e-3 
+    def initialize_learned_variables(self, mu1_init, mu2_init, mu3_init, tau_init):
+            """初始化可学习或可调参数"""
+            self.mu1 = torch.ones(self.iterations, dtype=torch.float32, device=self.cuda_device) * mu1_init
+            self.mu2 = torch.ones(self.iterations, dtype=torch.float32, device=self.cuda_device) * mu2_init
+            self.mu3 = torch.ones(self.iterations, dtype=torch.float32, device=self.cuda_device) * mu3_init
+            self.tau = torch.ones(self.iterations, dtype=torch.float32, device=self.cuda_device) * tau_init
 
     def forward(self, inputs):    
         """
