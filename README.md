@@ -20,7 +20,7 @@ conda create -n lensless_env -y
 conda activate lensless_env
 
 # 安装 Python、NumPy、Matplotlib、scikit-image 和 Pillow（图像处理库）到当前环境
-conda install python numpy matplotlib scikit-image pillow -y
+conda install python numpy matplotlib scikit-image -y
 
 # 从 PyTorch 官方通道安装最新稳定版的 PyTorch、TorchVision 和 TorchAudio
 # （-c pytorch 指定从 pytorch 官方频道获取软件包）
@@ -31,8 +31,8 @@ python -V
 
 # 测试核心科学计算与图像处理库是否安装成功
 # 如果没有错误并打印出 "All packages imported successfully!"，说明一切正常
-python -c "import numpy, matplotlib, skimage, PIL; print('All packages imported successfully!')"
+python -c "import numpy, matplotlib, skimage; print('All packages imported successfully!')"
 ```
 
-**注意事项：** Jupyter 组件未在环境中安装，运行时由 VSCode 自动管理。
+**注意事项：** Jupyter 组件未在环境中安装，运行时 VSCode 会提示安装，点击确定即可。
 

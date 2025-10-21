@@ -327,6 +327,7 @@ class ADMM_Net(torch.nn.Module):
         # ------------------------------------------------------------------
         for i in range(self.iterations):
             # print(f"\n--- Iteration {i+1}/{self.iterations} ---")
+            # print(f"[Iter {i}] mu1={self.mu1[i].item():.2e}, mu2={self.mu2[i].item():.2e}, mu3={self.mu3[i].item():.2e}, tau={self.tau[i].item():.2e}")
 
             out_vars, alpha2k_1_up, alpha2k_2_up = admm(
                 self, 

@@ -1,8 +1,7 @@
 import numpy as np
-from skimage import io, transform
-from PIL import Image
-import matplotlib.pyplot as plt
 import os
+from skimage import io, transform
+import matplotlib.pyplot as plt
 
 def load_and_downsample_normal2_image(
     path,
@@ -32,7 +31,11 @@ def load_and_downsample_normal2_image(
             bg = np.mean(img[:15, :15])
             img -= bg
     elif mode == "rgb":
-        img = np.array(Image.open(path).convert('RGB'), dtype=np.float64)
+        img = io.imread(path).astype(np.float64)
+        if img.ndim == 2:  # 灰度转 RGB
+            img = np.stack([img]*3, axis=-1)
+        elif img.shape[2] == 4:  # RGBA → RGB
+            img = img[..., :3]
     else:
         raise ValueError("mode 必须是 'gray' 或 'rgb'")
     
@@ -75,49 +78,157 @@ def visualize_reconstruction(
     iterations=300
 ):
     """
-    可视化结果，包括：
+    可视化结果：
     1. Ground truth（可选）
     2. PSF
     3. Measurement
-    4. Reconstructed image
+    4. Reconstruction
     """
     stages = []
-    
-    # 1️⃣ Ground truth
-    if ground_truth_file is not None and os.path.exists(ground_truth_file):
-        import imageio
-        gt_img = imageio.imread(ground_truth_file)
-        if gt_img.ndim == 2:  # 灰度转RGB
+
+    # === 1️⃣ Ground truth (可选) ===
+    if ground_truth_file and os.path.exists(ground_truth_file):
+        gt_img = io.imread(ground_truth_file)
+        if gt_img.ndim == 2:  # 灰度 → RGB
             gt_img = np.stack([gt_img]*3, axis=-1)
+        elif gt_img.shape[2] == 4:  # RGBA → RGB
+            gt_img = gt_img[..., :3]
         stages.append(("Ground Truth", gt_img))
-    else:
-        stages.append(("Ground Truth", None))
-    
-    # 2️⃣ PSF
+
+    # === 2️⃣ PSF ===
     stages.append(("PSF", psf_resized))
-    
-    # 3️⃣ Measurement
+
+    # === 3️⃣ Measurement ===
     stages.append(("Measurement", measurement_resized))
-    
-    # 4️⃣ Reconstruction
+
+    # === 4️⃣ Reconstruction ===
     stages.append((f"Reconstructed (iter={iterations})", reconstruction))
-    
-    fig, axes = plt.subplots(1, len(stages), figsize=(5*len(stages), 5))
-    if len(stages) == 1:
+
+    # === 仅保留有效的图像 ===
+    valid_stages = [(title, img) for title, img in stages if img is not None]
+
+    # === 创建对应数量的子图 ===
+    fig, axes = plt.subplots(1, len(valid_stages), figsize=(5 * len(valid_stages), 5))
+    if len(valid_stages) == 1:
         axes = [axes]
-    
-    for ax, (title, img) in zip(axes, stages):
-        if img is None:
-            ax.set_title(title + " (None)")
-            continue
-        
+
+    # === 绘制每个图 ===
+    for ax, (title, img) in zip(axes, valid_stages):
         if img.ndim == 2:  # 灰度
-            imshow_obj = ax.imshow(img, cmap='gray')
+            ax.imshow(img, cmap='gray')
         else:  # RGB
             img_show = np.clip(img / np.max(np.abs(img)), 0, 1)
-            imshow_obj = ax.imshow(img_show)
-        
+            ax.imshow(img_show)
         ax.set_title(title)
-    
+        ax.axis('off')
+
     plt.tight_layout()
     plt.show()
+
+def save_reconstruction_image(reconstruction, save_path=None):
+    """
+    保存重建图像（Reconstruction）。
+
+    Args:
+        reconstruction (np.ndarray): 重建结果图像，形状可以是 (H, W) 或 (H, W, 3)
+        save_path (str or None): 保存路径（如 "output/recon.png"）。
+                                 若为 None，则不保存，只打印提示。
+
+    Returns:
+        None
+    """
+    # --- 检查输入 ---
+    if reconstruction is None:
+        print("[Warning] Reconstruction is None, nothing to save.")
+        return
+
+    # --- 归一化到 [0, 1] ---
+    recon_norm = np.clip(reconstruction / np.max(np.abs(reconstruction)), 0, 1)
+
+    # --- 如果没有指定保存路径 ---
+    if save_path is None:
+        print("[Info] No save path provided — image will not be saved.")
+        return
+
+    # --- 确保目录存在 ---
+    import os
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    # --- 保存 ---
+    if recon_norm.ndim == 2:  # 灰度图
+        io.imsave(save_path, (recon_norm * 255).astype(np.uint8))
+    elif recon_norm.ndim == 3 and recon_norm.shape[2] == 3:  # RGB
+        io.imsave(save_path, (recon_norm * 255).astype(np.uint8))
+    else:
+        raise ValueError(f"Unsupported reconstruction shape: {reconstruction.shape}")
+
+    print(f"[Saved] Reconstruction image saved to: {save_path}")
+
+def save_all_images(
+    psf,
+    measurement,
+    reconstruction,
+    ground_truth=None,
+    save_dir=None,
+    filenames=None
+):
+    """
+    保存 PSF、Measurement、Reconstruction（以及可选 Ground Truth）。
+
+    Args:
+        psf (np.ndarray): PSF 图像
+        measurement (np.ndarray): Measurement 图像
+        reconstruction (np.ndarray): Reconstruction 图像
+        ground_truth (np.ndarray or None): 真值图像（可选）
+        save_dir (str or None): 保存目录路径，例如 "results/"
+                                若为 None，则不保存，只打印提示
+        filenames (dict or None): 自定义文件名，如：
+                                  {"gt": "gt.png", "psf": "psf.png", "meas": "m.png", "recon": "r.png"}
+
+    Returns:
+        None
+    """
+
+    # === 情况1：没有给出保存目录 ===
+    if save_dir is None:
+        print("[Info] No save directory provided — images will not be saved.")
+        return
+
+    # === 情况2：确保目录存在 ===
+    os.makedirs(save_dir, exist_ok=True)
+
+    # === 文件名设置 ===
+    default_filenames = {
+        "gt": "gt.png",
+        "psf": "psf.png",
+        "meas": "m.png",
+        "recon": "r.png"
+    }
+    if filenames is not None:
+        default_filenames.update(filenames)
+
+    # === 定义辅助函数（单张图保存） ===
+    def _save_img(img, path, label):
+        if img is None:
+            print(f"[Skip] {label} is None, not saving.")
+            return
+        img_norm = np.clip(img / np.max(np.abs(img)), 0, 1)
+        io.imsave(path, (img_norm * 255).astype(np.uint8))
+        print(f"[Saved] {label} saved to: {path}")
+
+    # === Ground Truth (可选) ===
+    if ground_truth is not None:
+        save_path = os.path.join(save_dir, default_filenames["gt"])
+        _save_img(ground_truth, save_path, "Ground Truth")
+
+    # === PSF ===
+    save_path = os.path.join(save_dir, default_filenames["psf"])
+    _save_img(psf, save_path, "PSF")
+
+    # === Measurement ===
+    save_path = os.path.join(save_dir, default_filenames["meas"])
+    _save_img(measurement, save_path, "Measurement")
+
+    # === Reconstruction ===
+    save_path = os.path.join(save_dir, default_filenames["recon"])
+    _save_img(reconstruction, save_path, "Reconstruction")
